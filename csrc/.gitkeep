@@ -1,0 +1,3 @@
+# High-performance C++/CUDA extensions land here in later stages:
+#   bdh_plif_kernel.cu  -- fused PLIF membrane dynamics kernel
+#   spike_matmul.cu     -- bitwise boolean POPCNT matrix multiplication

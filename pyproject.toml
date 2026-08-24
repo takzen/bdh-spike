@@ -1,0 +1,37 @@
+[project]
+name = "bdh-spike"
+version = "0.1.0"
+description = "Native Spiking Neural Network (SNN) implementation of the Baby Dragon Hatchling (BDH) architecture for Neuromorphic & Edge AI with Continual Learning."
+authors = [{ name = "TakzenAI" }]
+requires-python = ">=3.13"
+dependencies = [
+    "torch>=2.6",
+    "snntorch>=0.9",
+    "spikingjelly>=0.0.0.0.14",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.9",
+    "mypy>=1.14",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["bdh_spike"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.mypy]
+python_version = "3.13"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
