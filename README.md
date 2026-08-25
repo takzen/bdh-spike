@@ -75,15 +75,22 @@ uv pip install -e . --no-build-isolation --config-settings "--build-option=--cud
 
 ## 🚀 Quick Start
 
-> ⏳ **Work in progress.** The repository is currently at the environment-scaffolding stage.
-> First runnable neurons (`bdh_spike/core/neuron.py`) arrive with Stage 2 of the roadmap below.
+```python
+import torch
+from bdh_spike.core import BDHSpikeCell
+
+cell = BDHSpikeCell(num_channels=64)
+spikes, state = cell(torch.randn(16, 4, 64))   # [T, B, C] -> binary spikes [T, B, C]
+```
+
+Every emitted activation is a discrete spike $S(t) \in \{0, 1\}$; learning flows through the fast-sigmoid surrogate gradient only.
 
 ---
 
 ## 🗺️ Roadmap
 
 - [x] **Stage 1** — Repository & environment initialization (uv, Python 3.13, pyproject)
-- [ ] **Stage 2** — Neuromorphic core: `BDHSpikeCell` (PLIF decay, hard reset, fast-sigmoid surrogate, BDH recurrent coupling)
+- [x] **Stage 2** — Neuromorphic core: `BDHSpikeCell` (PLIF decay, hard reset, fast-sigmoid surrogate, BDH recurrent coupling)
 - [ ] **Stage 3** — Spike-driven attention: softmax-free associative masking on binary spikes
 - [ ] **Stage 4** — Dual plasticity engine: online STDP + homeostatic threshold adaptation (anti catastrophic-forgetting)
 - [ ] **Stage 5** — Model assembly: Vision-BDH-Spike backbone + streaming sequence model + spike encoders
