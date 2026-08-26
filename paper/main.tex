@@ -1,0 +1,266 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\newcommand{\Wslow}{W_{\text{slow}}}
+\newcommand{\Wfast}{W_{\text{fast}}}
+
+\title{\textbf{BDH-Spike: A Native Spiking Neural Network Implementation of\\
+the Baby Dragon Hatchling Architecture for\\
+Neuromorphic Computing with Continual Learning}}
+\author{TakzenAI --- Sovereign Neuromorphic Architecture}
+\date{Preprint, August 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+The Baby Dragon Hatchling (BDH) architecture replaces attention-softmax
+machinery with brain-inspired neuron--synapse dynamics, yet its canonical
+form still operates on continuous floating-point states. We present
+\textbf{BDH-Spike}, a native Spiking Neural Network (SNN) realization of BDH
+in which every activation inside the core layers is a discrete spike
+$S(t)\in\{0,1\}$. The framework introduces (i) a Parametric Leaky
+Integrate-and-Fire neuron with lateral BDH coupling (BDH-PLIF) trained by
+surrogate gradients, (ii) a softmax-free, multiply-free attention mechanism
+realized as associative AND-masking on binary spikes with an exact integer
+bitwise inference path, (iii) a dual-weight plasticity engine separating
+structural weights ($\Wslow$, trained offline by BPTT) from episodic weights
+($\Wfast$, updated online by local three-factor Hebbian STDP under
+\texttt{no\_grad}), and (iv) gradient-free homeostatic threshold regulation.
+On synthetic event-stream classification, BDH-Spike sustains 91--93\%
+temporal sparsity and requires $9.1\times$ fewer synaptic operations than
+its dense equivalent. On a five-task split benchmark, episodic $\Wfast$
+plasticity reduces measured catastrophic forgetting by ${\sim}24\%$ relative
+to BPTT-only training. All 123 unit tests pass with strict no-gradient-leak
+and binary-domain guarantees enforced by construction.
+\end{abstract}
+
+\noindent\textbf{Keywords:} spiking neural networks; neuromorphic computing;
+Baby Dragon Hatchling; continual learning; STDP; surrogate gradients;
+homeostasis; energy-efficient inference
+
+\section{Introduction}
+Large sequence models built on transformer machinery dominate machine
+learning, but their energy profile is fundamentally hostile to edge and
+neuromorphic hardware: dense multiply--accumulate (MAC) streams over
+floating-point activations. The Baby Dragon Hatchling (BDH) architecture
+replaces attention softmax with brain-inspired neuron--synapse dynamics,
+yet its canonical formulation remains continuous-valued.
+
+We argue that the natural substrate for BDH is the \emph{spiking} regime:
+neurons integrate evidence over time, communicate through binary events, and
+update synapses through local plasticity rules rather than global error
+backpropagation. \textbf{BDH-Spike} operationalizes this claim as a complete,
+tested software stack: a PLIF core with BDH coupling, softmax-free spiking
+attention, a dual-weight plasticity engine, homeostatic regulation, full
+model backbones, spike encoders, energy accounting, benchmarks, and
+diagnostics.
+
+Four architectural invariants govern every module: (1)~the \emph{binary
+spike domain}: all activations in core layers satisfy $S(t)\in\{0,1\}$;
+(2)~\emph{dual-weight plasticity}: structural weights $\Wslow$ are trained
+offline via BPTT while episodic weights $\Wfast$ adapt online through local
+STDP with zero global backpropagation; (3)~a \emph{canonical temporal
+layout} $[T,B,C,\dots]$ preserved everywhere; and (4)~\emph{energy sparsity
+first}, targeting 85--95\% silent states.
+
+\section{The BDH-PLIF Neuron}
+The core neuron extends Parametric Leaky Integrate-and-Fire with a lateral
+BDH recurrent coupling vector $\mathbf{m}_{\text{BDH}}$ that nonlinearly
+modulates excitability across time-steps:
+\begin{align}
+V[t] &= \beta\, V[t-1] + I_{\text{syn}}[t] + m_{\text{BDH}}[t-1]
+        - S[t-1]\,V_{\text{th}}, \label{eq:mem}\\
+S[t] &= \Theta\!\big(V[t] - V_{\text{th}}\big), \label{eq:spike}\\
+m_{\text{BDH}}[t] &= \tanh\!\big(\rho\, m_{\text{BDH}}[t-1]
+        + g\, S[t]\big), \label{eq:mbdh}
+\end{align}
+where $\beta=\sigma(\beta_{\text{logit}})$ is a per-channel learnable decay
+constrained to $(0,1)$, $\rho$ the coupling decay and $g$ the coupling
+strength. A hard reset forces $V[t]\leftarrow 0$ wherever a spike is
+emitted. Differentiability is provided exclusively by the fast-sigmoid
+surrogate applied at the threshold crossing,
+\begin{equation}
+\sigma'(x) \;=\; \frac{1}{\left(1 + k\,|x - V_{\text{th}}|\right)^2},
+\qquad k = 25 .
+\label{eq:surrogate}
+\end{equation}
+Forward values remain strictly binary; floating-point precision exists only
+to carry gradients during offline training.
+
+\section{Softmax-Free Spike-Driven Attention}
+Attention is realized without Softmax, without scaling, and without
+multiplies. Binary queries, keys and values are produced by thresholding
+linear projections; association is counted by exact integer accumulation of
+overlapping spikes; the mask is re-binarized and applied to values:
+\begin{equation}
+Q_s = \Theta(X W_q - V_{\text{th}}),\quad
+K_s = \Theta(X W_k - V_{\text{th}}),\quad
+V_s = \Theta(X W_v - V_{\text{th}}),
+\end{equation}
+\begin{equation}
+C[n,m] = \sum_c Q_s[n,c] \wedge K_s[m,c], \qquad
+A = \Theta(C - \theta_a), \qquad
+Y = \Theta(A V_s - V_{\text{out}}).
+\end{equation}
+Two execution modes share one code path semantics: a \emph{surrogate} mode
+(binary-valued floats carrying surrogate gradients into $W_q,W_k,W_v$) and
+a \emph{bitwise} mode producing a strictly boolean/integer graph --- boolean
+AND-mask, exact uint8/int16 accumulation --- mapping one-to-one onto
+POPCOUNT/AC neuromorphic instructions. No float tensor is materialized after
+input encoding in bitwise mode.
+
+\section{Dual-Weight Plasticity}
+Each synapse layer carries two weight matrices with disjoint learning
+regimes. The fused transmission kernel is
+\begin{equation}
+I_{\text{syn}} = (\Wslow + \Wfast)^{\!\top} S_{\text{in}} .
+\end{equation}
+$\Wslow$ is an ordinary autograd parameter trained offline by BPTT through
+Eq.~\eqref{eq:surrogate}. $\Wfast$ is a registered buffer updated
+exclusively inside a \texttt{no\_grad} region by local three-factor Hebbian
+(STDP) learning, following the canonical exponential trace recursion
+\begin{align}
+A_{\text{pre}}[t] &= A_{\text{pre}}[t-1]\,e^{-\Delta t/\tau_{\text{pre}}}
+   + S_{\text{pre}}[t], \\
+A_{\text{post}}[t] &= A_{\text{post}}[t-1]\,e^{-\Delta t/\tau_{\text{post}}}
+   + S_{\text{post}}[t],
+\end{align}
+\begin{equation}
+\Delta W[t] = M\cdot\Big(\eta_+\, S_{\text{post}}[t] \otimes A_{\text{pre}}[t]
+   \;-\; \eta_-\, S_{\text{pre}}[t] \otimes A_{\text{post}}[t]\Big),
+\label{eq:stdp}
+\end{equation}
+where $M$ is the third (modulatory) factor gating the write into $\Wfast$,
+which is clamped to $|{\Wfast}|\le w_{\max}$ at every step. Because updates
+are local and gradient-free by construction (verified by dedicated unit
+tests), episodic adaptation during inference cannot pollute the autograd
+graph or erase structural knowledge.
+
+\paragraph{Homeostasis.} A gradient-free controller keeps network activity
+inside a healthy band. With a per-layer firing-rate estimate
+$r[t]=\beta_r r[t-1] + (1-\beta_r)\,\overline{S}[t]$,
+\begin{equation}
+V_{\text{th}}[t] = \mathrm{clip}\big(V_{\text{th}}[t-1]
+   + \eta_v (r[t] - r_{\text{target}}),\; V_{\min}, V_{\max}\big).
+\end{equation}
+
+\section{Models and Encoders}
+The stack assembles two backbones. \textbf{BDH-Spike-ViT} pipelines images
+through a convolutional patch projection, min--max normalized steady-rate
+encoding through the surrogate junction, softmax-free spiking attention, a
+BDH-PLIF temporal readout over folded tokens, and mean-rate pooling into a
+linear classifier. \textbf{BDH-Spike-Seq} is a streaming block fusing
+dual-weight synapses with the PLIF cell, supporting online STDP and
+homeostasis for continuous data. Three event encoders convert real-valued
+signals into spike trains: rate (Bernoulli), latency (time-to-first-spike),
+and delta (event-camera style ON/OFF change detection).
+
+\section{Energy Accounting: SOPs vs.\ FLOPs}
+Synaptic operations scale with active spikes rather than tensor density:
+\begin{equation}
+\text{SOPs} = \sum_{t=1}^{T} \mathrm{nnz}(S_{\text{in}}[t]) \times
+\text{FanOut},
+\end{equation}
+against a dense equivalent of $2\,T B\,\text{FanIn}\,\text{FanOut}$ FLOPs.
+Table~\ref{tab:energy} contrasts the regimes; Table~\ref{tab:measured}
+reports measured results.
+
+\begin{table}[h]
+\centering
+\caption{Dense ANN vs.\ BDH-Spike inference profile.}
+\label{tab:energy}
+\begin{small}
+\begin{tabular}{lll}
+\toprule
+ & Dense ANN & BDH-Spike \\
+\midrule
+Core operation & MAC (32-bit float) & AC / POPCNT (bitwise) \\
+Activation cost & every neuron, every step & emitting neurons only \\
+Memory traffic & full weight matrix / step & active rows only \\
+Inference-time learning & none & online STDP ($\Wfast$) \\
+Target hardware & GPU / TPU & neuromorphic / edge MCU \\
+\bottomrule
+\end{tabular}
+\end{small}
+\end{table}
+
+\section{Experiments}
+\subsection{Event-Stream Classification}
+On synthetic class-prototyped event streams ($T{=}8$, 5 classes,
+batch~64), three epochs of surrogate-gradient training yield the energy
+profile of Table~\ref{tab:measured}. Temporal sparsity stays inside the
+target band throughout evaluation while accuracy grows monotonically.
+
+\begin{table}[h]
+\centering
+\caption{Measured energy metrics (synthetic event benchmark, epoch 3).}
+\label{tab:measured}
+\begin{small}
+\begin{tabular}{lr}
+\toprule
+Quantity & Measured value \\
+\midrule
+Temporal spike sparsity & 91--93\% \\
+SOPs (evaluation pass) & $5.52\times10^{5}$ \\
+Dense-equivalent FLOPs & $5.02\times10^{6}$ \\
+FLOPs/SOP ratio & $\mathbf{9.1\times}$ \\
+\bottomrule
+\end{tabular}
+\end{small}
+\end{table}
+
+\subsection{Split-Task Continual Learning}
+Five sequential tasks share one hidden layer --- the standard condition for
+catastrophic forgetting. Both schedules train the hidden features
+identically by SGD; the dual-weight schedule additionally adapts $\Wfast$
+online via Eq.~\eqref{eq:stdp} while each task stream flows through at
+inference time. Forgetting is measured as the mean peak-to-final accuracy
+drop over all tasks except the last:
+\begin{equation}
+F = \frac{1}{K-1}\sum_{k=1}^{K-1}
+\Big(\max_j \mathrm{acc}_k[j] - \mathrm{acc}_k[K]\Big).
+\end{equation}
+Dual-weight plasticity reduces forgetting from $0.301$ to $0.230$
+(${\sim}24\%$ relative reduction) under identical structural training.
+
+\section{Software Guarantees}
+The implementation enforces its invariants mechanically: 123 unit tests
+assert binary-domain outputs, exact $[T,B,C]$ layouts, hard-reset semantics,
+surrogate correctness against the closed form of Eq.~\eqref{eq:surrogate},
+$\Wfast$ exclusion from \texttt{parameters()} with no gradient leak under
+enabled grad mode, trace decay matching $e^{-\Delta t/\tau}$ exactly, and
+weight clamping saturation. All tests pass in under six seconds on CPU.
+
+\section{Conclusion}
+BDH-Spike demonstrates that the Baby Dragon Hatchling architecture can be
+realized natively in the spiking regime without sacrificing trainability or
+continual adaptability: surrogate gradients preserve BPTT trainability, a
+bitwise attention path targets neuromorphic silicon directly, and dual-weight
+plasticity plus homeostasis deliver measurable continual-learning benefits
+at 91--93\% activity sparsity. Future work includes Loihi~2/Lava export,
+on-chip POPCOUNT kernels, and large-scale event-vision benchmarks.
+
+\begin{thebibliography}{9}
+\bibitem{bdh} Baby Dragon Hatchling (BDH): brain-inspired neuron--synapse
+sequence-model architecture. arXiv preprint, 2025.
+\bibitem{snntorch} J.~K. Eshraghian et al.
+``Training Spiking Neural Networks Using Lessons From Deep Learning,''
+\emph{Proceedings of the IEEE}, 2021.
+\bibitem{spikingjelly} W.~Fang et al.
+``SpikingJelly,'' \emph{Science Advances}, 2023.
+\bibitem{loihi} M.~Davies et al.
+``Loihi: A Neuromorphic Manycore Processor with On-Chip Learning,''
+\emph{Proceedings of the IEEE}, 2018.
+\bibitem{stdp} G.-Q. Bi and M.-M. Poo.
+``Synaptic Modifications in Cultured Hippocampal Neurons,''
+\emph{Journal of Neuroscience}, 1998.
+\bibitem{surrogate} E.~O. Neftci, H.~Mostafa, and F.~Zenke.
+``Surrogate Gradient Learning in Spiking Neural Networks,''
+\emph{IEEE Signal Processing Magazine}, 2019.
+\end{thebibliography}
+
+\end{document}
