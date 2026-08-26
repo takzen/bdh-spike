@@ -2,7 +2,7 @@
 name = "bdh-spike"
 version = "0.1.0"
 description = "Native Spiking Neural Network (SNN) implementation of the Baby Dragon Hatchling (BDH) architecture for Neuromorphic & Edge AI with Continual Learning."
-authors = [{ name = "TakzenAI" }]
+authors = [{ name = "Krzysztof Pika" }]
 requires-python = ">=3.13"
 dependencies = [
     "torch>=2.6",

@@ -4,6 +4,16 @@
 
 `BDH-Spike` bridges the theoretical bio-physical properties of the **Baby Dragon Hatchling (BDH)** architecture with **discrete event-driven Spiking Neural Networks**. No floating-point activations inside the core layers. No global backpropagation during inference. Just spikes.
 
+## 🛠️ Tech Stack
+
+![Python](https://img.shields.io/badge/Python-3.13+-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.x-EE4C2C?logo=pytorch&logoColor=white)
+![uv](https://img.shields.io/badge/Managed%20with-uv-DE5FE9)
+![snnTorch](https://img.shields.io/badge/snnTorch-SNN%20ecosystem-8A2BE2)
+![SpikingJelly](https://img.shields.io/badge/SpikingJelly-SNN%20ecosystem-4B0082)
+![CUDA](https://img.shields.io/badge/CUDA-12.x-76B900?logo=nvidia&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+
 ---
 
 ## 🔥 Core Philosophy
@@ -198,15 +208,10 @@ Every completed stage additionally verifies a **> 70% spike sparsity** assertion
 
 ---
 
-## 🛠️ Tech Stack
+## 📄 License
 
-![Python](https://img.shields.io/badge/Python-3.13+-3776AB?logo=python&logoColor=white)
-![PyTorch](https://img.shields.io/badge/PyTorch-2.x-EE4C2C?logo=pytorch&logoColor=white)
-![uv](https://img.shields.io/badge/Managed%20with-uv-DE5FE9)
-![snnTorch](https://img.shields.io/badge/snnTorch-SNN%20ecosystem-8A2BE2)
-![SpikingJelly](https://img.shields.io/badge/SpikingJelly-SNN%20ecosystem-4B0082)
-![CUDA](https://img.shields.io/badge/CUDA-12.x-76B900?logo=nvidia&logoColor=white)
+Released under the [MIT License](LICENSE).
 
 ---
 
-_Generated for TakzenAI // Sovereign Neuromorphic Architecture._
+**Krzysztof Pika**
