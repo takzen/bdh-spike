@@ -50,6 +50,8 @@ class BDHSpikeCell(nn.Module):
         bdh_decay: Decay factor ρ of the BDH coupling vector ``m_bdh``.
     """
 
+    v_th: torch.Tensor
+
     def __init__(
         self,
         num_channels: int,

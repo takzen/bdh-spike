@@ -77,6 +77,10 @@ class SpikeDrivenAttention(nn.Module):
             inference graph).
     """
 
+    in_v_th: torch.Tensor
+    attn_th: torch.Tensor
+    out_v_th: torch.Tensor
+
     def __init__(
         self,
         embed_dim: int,
