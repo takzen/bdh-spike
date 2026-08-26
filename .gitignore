@@ -1,6 +1,6 @@
 # Local agent/planning docs (not part of the published source)
 AGENTS.md
-PLAN2.md
+PLAN*.md
 
 # Byte-compiled / cache
 __pycache__/
