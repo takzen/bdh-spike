@@ -177,6 +177,74 @@ class TestNoGradientLeak:
             assert not trace.requires_grad
 
 
+class TestModulatorFactor:
+    """Dedicated §2-PLAN2 audit tests for the third factor ``M``.
+
+    Documented semantics (must stay true): ``M`` defaults to 1.0, gates the
+    magnitude of ΔW linearly, ``M == 0`` freezes ``W_fast``, per-sample
+    ``[B]`` tensors broadcast over channels. ``M`` has no data/reward
+    dependence anywhere in the codebase — it exists purely as an interface.
+    """
+
+    @staticmethod
+    def _pair() -> tuple[torch.Tensor, torch.Tensor]:
+        pre = torch.zeros(2, B, Cin)
+        post = torch.zeros(2, B, Cout)
+        pre[0, :, 0] = 1.0
+        post[1, :, 0] = 1.0
+        return pre, post
+
+    def test_default_modulator_is_one(self, layer: DualWeightLinear) -> None:
+        import inspect
+
+        default = inspect.signature(DualWeightLinear.plastic_step).parameters["modulator"].default
+        assert default == 1.0, "M must default to exactly 1.0"
+
+    def test_unit_m_equals_no_explicit_m(self) -> None:
+        pre, post = self._pair()
+        net_a = DualWeightLinear(fan_in=Cin, fan_out=Cout, ltp_rate=0.05, ltd_rate=0.0)
+        net_b = DualWeightLinear(fan_in=Cin, fan_out=Cout, ltp_rate=0.05, ltd_rate=0.0)
+        net_a.run_episode(pre, post, modulators=1.0)
+        net_b.run_episode(pre, post)  # default path
+        assert torch.equal(net_a.w_fast, net_b.w_fast)
+
+    def test_per_sample_tensor_broadcasts_over_channels(self) -> None:
+        pre, post = self._pair()
+        net = DualWeightLinear(fan_in=Cin, fan_out=Cout, ltp_rate=0.05, ltd_rate=0.0)
+        m = torch.full((B,), 2.0)  # [B] per-sample modulation
+        net.run_episode(pre, post, modulators=m)
+        # Same total write as scalar 2.0 (all samples share the value).
+        expected = 0.05 * net.decay_pre * 2.0
+        assert net.w_fast[0, 0].item() == pytest.approx(expected, rel=1e-6)
+
+    def test_zero_freezes_w_fast_during_training_stream(self, layer: DualWeightLinear) -> None:
+        pre = (torch.rand(T, B, Cin) > 0.5).float()
+        post = (torch.rand(T, B, Cout) > 0.5).float()
+        before = layer.w_fast.clone()
+        for t in range(T):
+            layer.plastic_step(pre[t], post[t], layer.init_hidden(B), modulator=0.0)
+        assert torch.equal(layer.w_fast, before)
+
+    def test_negative_modulator_inverts_update_sign(self) -> None:
+        """Documented edge semantics: negative M flips potentiation↔depression."""
+        pre, post = self._pair()
+        pos = DualWeightLinear(fan_in=Cin, fan_out=Cout, ltp_rate=0.05, ltd_rate=0.05)
+        neg = DualWeightLinear(fan_in=Cin, fan_out=Cout, ltp_rate=0.05, ltd_rate=0.05)
+        pos.run_episode(pre, post, modulators=1.0)
+        neg.run_episode(pre, post, modulators=-1.0)
+        assert torch.equal(pos.w_fast, -neg.w_fast)
+
+    def test_m_has_no_hidden_reward_or_label_dependence(self) -> None:
+        """Static audit: the only M entry point is the explicit argument."""
+        import inspect
+
+        src = inspect.getsource(DualWeightLinear)
+        forbidden = ("reward", "label", "target", "loss")
+        assert not any(word in src.lower() for word in forbidden), (
+            "M must remain an explicit interface parameter"
+        )
+
+
 class TestAdaptiveThresholdHomeostat:
     @pytest.fixture()
     def homeo(self) -> AdaptiveThreshold:

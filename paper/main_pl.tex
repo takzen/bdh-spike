@@ -147,7 +147,13 @@ A_{\text{post}}[t] &= A_{\text{post}}[t-1]\,e^{-\Delta t/\tau_{\text{post}}}
 \label{eq:stdp}
 \end{equation}
 gdzie $M$ to trzeci (modulacyjny) czynnik bramkujący zapis do $\Wfast$,
-klamrowany co krok do $|{\Wfast}|\le w_{\max}$. Ponieważ aktualizacje są
+klamrowany co krok do $|{\Wfast}|\le w_{\max}$. W implementacji $M$ jest
+jawnym parametrem interfejsu wywołania plastyczności (skalar lub tensor
+per-próbka; $M=0$ zamraża $\Wfast$). Mówimy wprost: \textbf{we wszystkich
+eksperymentach raportowanych w tej pracy $M \equiv 1$} --- czynnik nie
+moduluje żadnego z raportowanych wyników i nie zależy od nagrody ani etykiet;
+istnieje jako interfejs pod przyszłe rozszerzenia neuromodulacyjne. Ponieważ
+aktualizacje są
 lokalne i gradientowo wolne konstruktcyjnie (zweryfikowane dedykowanymi
 testami jednostkowymi), epizodyczna adaptacja podczas inferencji nie może
 skazić grafu autograd ani wymazać wiedzy strukturalnej.

@@ -135,7 +135,13 @@ A_{\text{post}}[t] &= A_{\text{post}}[t-1]\,e^{-\Delta t/\tau_{\text{post}}}
 \label{eq:stdp}
 \end{equation}
 where $M$ is the third (modulatory) factor gating the write into $\Wfast$,
-which is clamped to $|{\Wfast}|\le w_{\max}$ at every step. Because updates
+which is clamped to $|{\Wfast}|\le w_{\max}$ at every step. In the
+implementation $M$ is an explicit interface parameter of the plasticity
+call (a scalar or a per-sample tensor; $M=0$ freezes $\Wfast$). We state
+plainly: \textbf{in all experiments reported in this paper $M \equiv 1$} ---
+the factor does not modulate any reported result and carries no
+reward- or label-dependence; it exists as an interface for future
+neuromodulatory extensions. Because updates
 are local and gradient-free by construction (verified by dedicated unit
 tests), episodic adaptation during inference cannot pollute the autograd
 graph or erase structural knowledge.
