@@ -47,8 +47,8 @@ Large sequence models built on transformer machinery dominate machine
 learning, but their energy profile is fundamentally hostile to edge and
 neuromorphic hardware: dense multiply--accumulate (MAC) streams over
 floating-point activations. The Baby Dragon Hatchling (BDH) architecture
-replaces attention softmax with brain-inspired neuron--synapse dynamics,
-yet its canonical formulation remains continuous-valued.
+\cite{bdh} replaces attention softmax with brain-inspired neuron--synapse
+dynamics, yet its canonical formulation remains continuous-valued.
 
 We argue that the natural substrate for BDH is the \emph{spiking} regime:
 neurons integrate evidence over time, communicate through binary events, and
@@ -245,22 +245,47 @@ at 91--93\% activity sparsity. Future work includes Loihi~2/Lava export,
 on-chip POPCOUNT kernels, and large-scale event-vision benchmarks.
 
 \begin{thebibliography}{9}
-\bibitem{bdh} Baby Dragon Hatchling (BDH): brain-inspired neuron--synapse
-sequence-model architecture. arXiv preprint, 2025.
-\bibitem{snntorch} J.~K. Eshraghian et al.
-``Training Spiking Neural Networks Using Lessons From Deep Learning,''
-\emph{Proceedings of the IEEE}, 2021.
-\bibitem{spikingjelly} W.~Fang et al.
-``SpikingJelly,'' \emph{Science Advances}, 2023.
-\bibitem{loihi} M.~Davies et al.
+
+\bibitem{bdh}
+A.~Kosowski, P.~Uzna\'nski, J.~Chorowski, Z.~Stamirowska, and
+M.~Bartoszkiewicz,
+``The Dragon Hatchling: The Missing Link between the Transformer and Models
+of the Brain,'' arXiv preprint \textbf{arXiv:2509.26507} [cs.NE], Sep.~2025.
+Code: \url{https://github.com/pathwaycom/bdh}. Blog:
+\url{https://pathway.com/research/bdh}.
+
+\bibitem{snntorch}
+J.~K. Eshraghian, M.~Ward, E.~Neftci, X.~Wang, G.~Lenz, G.~Dwivedi,
+M.~Bennamoun, D.~S. Jeong, and W.~D. Lu,
+``Training Spiking Neural Networks Using Lessons From Deep Learning''
+(the \texttt{snnTorch} tutorial paper),
+arXiv:2109.12894; published in \emph{Proceedings of the IEEE}, 2023.
+
+\bibitem{spikingjelly}
+W.~Fang, Y.~Chen, J.~Ding, Z.~Yu, T.~Masquelier, D.~Chen, L.~Huang,
+H.~Zhou, G.~Li, and Y.~Tian,
+``SpikingJelly: An open-source machine learning infrastructure platform for
+spike-based intelligence,'' \emph{Science Advances}, vol.~10, eadi1480, 2024.
+DOI: \url{https://doi.org/10.1126/sciadv.adi1480}; arXiv:2310.16620.
+
+\bibitem{loihi}
+M.~Davies et al.,
 ``Loihi: A Neuromorphic Manycore Processor with On-Chip Learning,''
-\emph{Proceedings of the IEEE}, 2018.
-\bibitem{stdp} G.-Q. Bi and M.-M. Poo.
-``Synaptic Modifications in Cultured Hippocampal Neurons,''
-\emph{Journal of Neuroscience}, 1998.
-\bibitem{surrogate} E.~O. Neftci, H.~Mostafa, and F.~Zenke.
+\emph{IEEE Micro}, vol.~38, no.~1, pp.~82--90, 2018.
+DOI: \url{https://doi.org/10.1109/MM.2018.112130359}.
+
+\bibitem{stdp}
+G.-Q. Bi and M.-M. Poo,
+``Synaptic Modifications in Cultured Hippocampal Neurons: Dependence on Spike
+Timing, Synaptic Strength, and Postsynaptic Cell Type,''
+\emph{Journal of Neuroscience}, vol.~18, no.~24, pp.~10464--10472, 1998.
+
+\bibitem{surrogate}
+E.~O. Neftci, H.~Mostafa, and F.~Zenke,
 ``Surrogate Gradient Learning in Spiking Neural Networks,''
-\emph{IEEE Signal Processing Magazine}, 2019.
+\emph{IEEE Signal Processing Magazine}, vol.~36, no.~6, pp.~51--63, 2019.
+arXiv:1901.09948.
+
 \end{thebibliography}
 
 \end{document}
