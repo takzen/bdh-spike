@@ -80,10 +80,23 @@ import torch
 from bdh_spike.core import BDHSpikeCell
 
 cell = BDHSpikeCell(num_channels=64)
-spikes, state = cell(torch.randn(16, 4, 64))   # [T, B, C] -> binary spikes [T, B, C]
+spikes, state = cell(torch.randn(16, 4, 64))  # [T, B, C] -> binary spikes [T, B, C]
 ```
 
 Every emitted activation is a discrete spike $S(t) \in \{0, 1\}$; learning flows through the fast-sigmoid surrogate gradient only.
+
+Spike-driven attention — no Softmax, just associative masking on binary spikes:
+
+```python
+import torch
+from bdh_spike.core import SpikeDrivenAttention
+
+attn = SpikeDrivenAttention(embed_dim=64, num_heads=4)
+y = attn(torch.randn(16, 4, 32, 64))      # [T, B, N, C] -> binary spikes [T, B, N, C]
+
+# Deployment: strictly boolean-integer graph — zero float tensors after encoding.
+hw = SpikeDrivenAttention(embed_dim=64, num_heads=4, mode="bitwise")
+```
 
 ---
 
@@ -91,7 +104,7 @@ Every emitted activation is a discrete spike $S(t) \in \{0, 1\}$; learning flows
 
 - [x] **Stage 1** — Repository & environment initialization (uv, Python 3.13, pyproject)
 - [x] **Stage 2** — Neuromorphic core: `BDHSpikeCell` (PLIF decay, hard reset, fast-sigmoid surrogate, BDH recurrent coupling)
-- [ ] **Stage 3** — Spike-driven attention: softmax-free associative masking on binary spikes
+- [x] **Stage 3** — Spike-driven attention: softmax-free associative masking on binary spikes
 - [ ] **Stage 4** — Dual plasticity engine: online STDP + homeostatic threshold adaptation (anti catastrophic-forgetting)
 - [ ] **Stage 5** — Model assembly: Vision-BDH-Spike backbone + streaming sequence model + spike encoders
 - [ ] **Stage 6** — Energy metrics & benchmarks: SOPs vs FLOPs tracker, N-MNIST eval, continual-learning split-task test
