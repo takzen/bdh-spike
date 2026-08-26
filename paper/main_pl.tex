@@ -1,0 +1,305 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[polski]{babel}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\newcommand{\Wslow}{W_{\text{slow}}}
+\newcommand{\Wfast}{W_{\text{fast}}}
+
+\title{\textbf{BDH-Spike: natywna implementacja architektury\\
+Baby Dragon Hatchling w spikingowych sieciach neuronowych\\
+dla komputingu neuromorficznego z uczeniem ciągłym}}
+\author{Krzysztof Pika}
+\date{Preprint, sierpień 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Architektura Baby Dragon Hatchling (BDH) zastępuje mechanizm softmax w
+atencji biologicznie inspirowaną dynamiką neuron--synapsa, jednak jej
+kanoniczna forma nadal operuje na ciągłych stanach zmiennoprzecinkowych.
+Prezentujemy \textbf{BDH-Spike} --- natywną realizację BDH w paradygmacie
+spikingowych sieci neuronowych (SNN), w której każda aktywacja wewnątrz
+warstw rdzenia jest dyskretnym impulsem $S(t)\in\{0,1\}$. Framework wnosi:
+(i)~neuron Parametric Leaky Integrate-and-Fire z bocznym sprzężeniem BDH
+(BDH-PLIF) trenowany gradientami surogatowymi, (ii)~mnożeniowo wolną uwagę
+bez Softmaxu, realizowaną jako asocjacyjne maskowanie AND na binarnych
+impulsach z dokładną całkowitoliczbową ścieżką inferencji bitwise,
+(iii)~silnik plastyczności o podwójnych wagach rozdzielający wagi
+strukturalne ($\Wslow$, trenowane offline przez BPTT) od wag epizodycznych
+($\Wfast$, aktualizowanych online przez lokalną trójczynnikową plastyczność
+Hebbiana STDP pod \texttt{no\_grad}) oraz (iv)~gradientowo wolną regulację
+homeostatyczną progu. Na syntetycznej klasyfikacji strumieni eventowych
+BDH-Spike utrzymuje 91--93\% rzadkości czasowej i wymaga $9{,}1\times$
+mniej operacji synaptycznych niż gęsty odpowiednik. W pięciozadaniowym
+benchmarku sekwencyjnym plastyczność epizodyczna $\Wfast$ redukuje
+zmierzone zapominanie katastroficzne o ${\sim}24\%$ względem treningu
+wyłącznie BPTT. Wszystkie 123 testy jednostkowe przechodzą z rygorystycznymi
+gwarancjami braku przecieku gradientów i domeny binarnej egzekwowanymi
+konstrukcyjnie.
+\end{abstract}
+
+\noindent\textbf{Słowa kluczowe:} spikingowe sieci neuronowe; komputing
+neuromorficzny; Baby Dragon Hatchling; uczenie ciągłe; STDP; gradienty
+surogatowe; homeostaza; energooszczędna inferencja
+
+\section{Wstęp}
+Duże modele sekwencyjne oparte na maszynie transformera dominują uczenie
+maszynowe, lecz ich profil energetyczny jest fundamentalnie wrogi
+sprzętowi brzegowemu i neuromorficznemu: gęste strumienie
+mnożenia--akumulacji (MAC) na aktywacjach zmiennoprzecinkowych.
+Architektura Baby Dragon Hatchling (BDH) \cite{bdh} zastępuje softmax
+atencji biologicznie inspirowaną dynamiką neuron--synapsa, jednak jej
+kanoniczna formulacja pozostaje ciągłocenna.
+
+Twierdzimy, że naturalnym substratem dla BDH jest reżim \emph{spikingowy}:
+neurony integrują dowody w czasie, komunikują się binarnymi zdarzeniami i
+aktualizują synapsy lokalnymi regułami plastyczności zamiast globalnej
+propagacji błędu. \textbf{BDH-Spike} operacjonalizuje to twierdzenie jako
+kompletny, przetestowany stos programowy: rdzeń PLIF ze sprzężeniem BDH,
+spikingową uwagę bez Softmaxu, silnik plastyczności o podwójnych wagach,
+regulację homeostatyczną, pełne backbony modeli, enkodery impulsów,
+rachunkę energii, benchmarki i diagnostykę.
+
+Cztery niezmienniki architektoniczne rządzą każdym modułem: (1)~\emph{binarna
+domena impulsów}: wszystkie aktywacje w warstwach rdzenia spełniają
+$S(t)\in\{0,1\}$; (2)~\emph{plastyczność o podwójnych wagach}: wagi
+strukturalne $\Wslow$ są trenowane offline przez BPTT, podczas gdy wagi
+epizodyczne $\Wfast$ adaptują się online przez lokalny STDP z zerową
+propagacją wsteczną; (3)~\emph{kanoniczny układ czasowy}
+$[T,B,C,\dots]$ zachowany wszędzie; oraz (4)~\emph{rzadkość energetyczna
+przede wszystkim}, z celem 85--95\% cichych stanów.
+
+\section{Neuron BDH-PLIF}
+Rdzeniowy neuron rozszerza Parametric Leaky Integrate-and-Fire o lateralny
+rekurencyjny wektor sprzężenia BDH $\mathbf{m}_{\text{BDH}}$, który
+nieliniowo moduluje pobudliwość pomiędzy krokami czasu:
+\begin{align}
+V[t] &= \beta\, V[t-1] + I_{\text{syn}}[t] + m_{\text{BDH}}[t-1]
+        - S[t-1]\,V_{\text{th}}, \label{eq:mem}\\
+S[t] &= \Theta\!\big(V[t] - V_{\text{th}}\big), \label{eq:spike}\\
+m_{\text{BDH}}[t] &= \tanh\!\big(\rho\, m_{\text{BDH}}[t-1]
+        + g\, S[t]\big), \label{eq:mbdh}
+\end{align}
+gdzie $\beta=\sigma(\beta_{\text{logit}})$ jest kanałowym uczalnym
+wskaźnikiem zaniku ograniczonym do $(0,1)$, $\rho$ --- współczynnikiem
+zaniku sprzężenia, a $g$ --- siłą sprzężenia. Twardy reset wymusza
+$V[t]\leftarrow 0$ wszędzie tam, gdzie emisjonowany jest impuls.
+Różniczkowalność zapewniona jest wyłącznie przez surogat fast-sigmoid
+stosowany przy przekroczeniu progu,
+\begin{equation}
+\sigma'(x) \;=\; \frac{1}{\left(1 + k\,|x - V_{\text{th}}|\right)^2},
+\qquad k = 25 .
+\label{eq:surrogate}
+\end{equation}
+Wartości w przód pozostają ściśle binarne; precyzja zmiennoprzecinkowa
+istnieje jedynie po to, by przenosić gradienty podczas treningu offline.
+
+\section{Spike'owa uwaga bez Softmaxu}
+Atencja jest realizowana bez Softmaxu, bez skalowania i bez mnożeń. Binarna
+zapytania, klucze i wartości powstają przez progowanie projekcji liniowych;
+asocjacja jest liczona przez dokładną całkowitoliczbową akumulację
+nakładających się impulsów; maska jest re-binaryzowana i nakładana na
+wartości:
+\begin{equation}
+Q_s = \Theta(X W_q - V_{\text{th}}),\quad
+K_s = \Theta(X W_k - V_{\text{th}}),\quad
+V_s = \Theta(X W_v - V_{\text{th}}),
+\end{equation}
+\begin{equation}
+C[n,m] = \sum_c Q_s[n,c] \wedge K_s[m,c], \qquad
+A = \Theta(C - \theta_a), \qquad
+Y = \Theta(A V_s - V_{\text{out}}).
+\end{equation}
+Dwa tryby wykonania współdzielą semantykę jednej ścieżki kodu: tryb
+\emph{surrogate} (binarne floaty niosące gradienty surogatowe do
+$W_q,W_k,W_v$) oraz tryb \emph{bitwise} produkujący ściśle
+boole'owo-całkowitoliczbowy graf --- boolean'ową maskę AND, dokładną
+akumulację uint8/int16 --- mapujący się jeden-do-jeden na instrukcje
+POPCOUNT/AC sprzętu neuromorficznego. W trybie bitwise po zakodowaniu wejścia
+nie powstaje żaden tensor zmiennoprzecinkowy.
+
+\section{Plastyczność o podwójnych wagach}
+Każda warstwa synaptyczna niesie dwie macierze wag o rozłączonych reżimach
+uczenia. Fuzja transmisyjna ma postać
+\begin{equation}
+I_{\text{syn}} = (\Wslow + \Wfast)^{\!\top} S_{\text{in}} .
+\end{equation}
+$\Wslow$ to zwykły parametr autograd trenowany offline przez BPTT poprzez
+równanie~\eqref{eq:surrogate}. $\Wfast$ jest zarejestrowanym buforem
+aktualizowanym wyłącznie wewnątrz regionu \texttt{no\_grad} przez lokalne
+trójczynnikowe uczenie Hebbiana (STDP), zgodnie z kanoniczną rekurencją
+wykładniczych śladów
+\begin{align}
+A_{\text{pre}}[t] &= A_{\text{pre}}[t-1]\,e^{-\Delta t/\tau_{\text{pre}}}
+   + S_{\text{pre}}[t], \\
+A_{\text{post}}[t] &= A_{\text{post}}[t-1]\,e^{-\Delta t/\tau_{\text{post}}}
+   + S_{\text{post}}[t],
+\end{align}
+\begin{equation}
+\Delta W[t] = M\cdot\Big(\eta_+\, S_{\text{post}}[t] \otimes A_{\text{pre}}[t]
+   \;-\; \eta_-\, S_{\text{pre}}[t] \otimes A_{\text{post}}[t]\Big),
+\label{eq:stdp}
+\end{equation}
+gdzie $M$ to trzeci (modulacyjny) czynnik bramkujący zapis do $\Wfast$,
+klamrowany co krok do $|{\Wfast}|\le w_{\max}$. Ponieważ aktualizacje są
+lokalne i gradientowo wolne konstruktcyjnie (zweryfikowane dedykowanymi
+testami jednostkowymi), epizodyczna adaptacja podczas inferencji nie może
+skazić grafu autograd ani wymazać wiedzy strukturalnej.
+
+\paragraph{Homeostaza.} Gradientowo wolny kontroler utrzymuje aktywność sieci
+w zdrowym paśmie. Z estymatą częstości wyładowań warstwy
+$r[t]=\beta_r r[t-1] + (1-\beta_r)\,\overline{S}[t]$ obowiązuje
+\begin{equation}
+V_{\text{th}}[t] = \mathrm{clip}\big(V_{\text{th}}[t-1]
+   + \eta_v (r[t] - r_{\text{target}}),\; V_{\min}, V_{\max}\big).
+\end{equation}
+Hiperaktywność podnosi próg (ochrona przed napadami); cisza obniża go z
+powrotem ku pobudliwości.
+
+\section{Modele i enkodery}
+Stos składa dwa backbony. \textbf{BDH-Spike-ViT} prowadzi obrazy przez
+konwolucyjną projekcję łatek, znormalizowane steady-rate kodowanie przez
+junction surogatową, spikingową uwagę bez Softmaxu, czasowy odczyt BDH-PLIF
+po złożeniu tokenów oraz uśrednienie tempa wyładowań do liniowej głowy
+klasyfikatora. \textbf{BDH-Spike-Seq} to streamingowy blok łączący synapsy o
+podwójnych wagach z komórką PLIF, wspierający online STDP i homeostazę dla
+danych ciągłych. Trzy enkodery eventów konwertują sygnały rzeczywiste na
+pociągi impulsów: rate (Bernoulliego), latency (time-to-first-spike) oraz
+delta (wykrywanie zmian ON/OFF w stylu kamer eventowych).
+
+\section{Rachunka energii: SOPs vs.\ FLOPs}
+Operacje synaptyczne skalują się aktywnymi impulsami, a nie gęstością
+tensora:
+\begin{equation}
+\text{SOPs} = \sum_{t=1}^{T} \mathrm{nnz}(S_{\text{in}}[t]) \times
+\text{FanOut},
+\end{equation}
+wobec gęstego odpowiednika $2\,T B\,\text{FanIn}\,\text{FanOut}$ FLOPs.
+Tabela~\ref{tab:energy} przeciwstawia oba reżimy; tabela~\ref{tab:measured}
+raportuje wyniki zmierzone.
+
+\begin{table}[h]
+\centering
+\caption{Profil inferencji: gęsta sieć ANN vs.\ BDH-Spike.}
+\label{tab:energy}
+\begin{small}
+\begin{tabular}{lll}
+\toprule
+ & Gęsta ANN & BDH-Spike \\
+\midrule
+Operacja rdzeniowa & MAC (32-bit float) & AC / POPCNT (bitwise) \\
+Koszt aktywacji & każdy neuron, każdy krok & tylko neurony emitujące \\
+Ruch pamięci & pełna macierz wag / krok & tylko aktywne wiersze \\
+Uczenie w inferencji & brak & online STDP ($\Wfast$) \\
+Sprzęt docelowy & GPU / TPU & neuromorficzny / edge MCU \\
+\bottomrule
+\end{tabular}
+\end{small}
+\end{table}
+
+\section{Eksperymenty}
+\subsection{Klasyfikacja strumieni eventowych}
+Na syntetycznych strumieniach eventowych z prototypami klas ($T{=}8$,
+5 klas, batch~64) trzy epoki treningu gradientami surogatowymi dają profil
+energetyczny z tabeli~\ref{tab:measured}. Czasowa rzadkość pozostaje w
+paśmie docelowym przez całą ewaluację, a dokładność rośnie monotonicznie.
+
+\begin{table}[h]
+\centering
+\caption{Zmierzone metryki energii (syntetyczny benchmark eventowy, epoka 3).}
+\label{tab:measured}
+\begin{small}
+\begin{tabular}{lr}
+\toprule
+Wielkość & Wartość zmierzona \\
+\midrule
+Czasowa rzadkość impulsów & 91--93\% \\
+SOPs (przebieg ewaluacji) & $5{,}52\times10^{5}$ \\
+Gęsto-równoważne FLOPs & $5{,}02\times10^{6}$ \\
+Stosunek FLOPs/SOP & $\mathbf{9{,}1\times}$ \\
+\bottomrule
+\end{tabular}
+\end{small}
+\end{table}
+
+\subsection{Split-task uczenie ciągłe}
+Pięć sekwencyjnych zadań współdzieli jedną warstwę ukrytą --- standardowy
+warunek zapominania katastroficznego. Oba harmonogramy trenują ukryte cechy
+identycznie SGD; harmonogram dual-weight dodatkowo adaptuje $\Wfast$
+online poprzez równanie~\eqref{eq:stdp}, podczas gdy strumień każdego
+zadania przepływa przez sieć w czasie inferencji. Zapominanie mierzymy jako
+średni spadek dokładności od szczytu do końca po wszystkich zadaniach poza
+ostatnim:
+\begin{equation}
+F = \frac{1}{K-1}\sum_{k=1}^{K-1}
+\Big(\max_j \mathrm{acc}_k[j] - \mathrm{acc}_k[K]\Big).
+\end{equation}
+Plastyczność o podwójnych wagach redukuje zapominanie z $0{,}301$ do
+$0{,}230$ ($\sim$24\% redukcji względnej) przy identycznym treningu
+strukturalnym.
+
+\section{Gwarancje implementacji}
+Implementacja egzekwuje swoje niezmienniki mechanicznie: 123 testy
+jednostkowe asertują binarność wyjść, dokładne układy $[T,B,C]$,
+semantykę twardego resetu, poprawność surogatu względem postaci zamkniętej
+z równania~\eqref{eq:surrogate}, wykluczenie $\Wfast$ z
+\texttt{parameters()} bez przecieku gradientów przy włączonym trybie grad,
+zanik śladów zgodny z $e^{-\Delta t/\tau}$ co do cyfry oraz saturację
+klamrowania wag. Wszystkie testy przechodzą w poniżej sześciu sekund na CPU.
+
+\section{Zakończenie}
+BDH-Spike pokazuje, że architekturę Baby Dragon Hatchling można zrealizować
+natywnie w reżimie spikingowym bez poświęcenia trenowalności ani ciągłej
+adaptacyjności: gradienty surogatowe zachowują trenowalność BPTT, ścieżka
+bitwise atencji celuje bezpośrednio w krzem neuromorficzny, a plastyczność o
+podwójnych wagach wraz z homeostazą dostarcza wymiernych korzyści uczenia
+ciągłego przy rzadkości aktywności 91--93\%. Praca przyszła obejmuje eksport
+Loihi~2/Lava, kernele POPCOUNT on-chip oraz duże benchmarki wizji eventowej.
+
+\begin{thebibliography}{9}
+
+\bibitem{bdh}
+A.~Kosowski, P.~Uznański, J.~Chorowski, Z.~Stamirowska i M.~Bartoszkiewicz,
+,,The Dragon Hatchling: The Missing Link between the Transformer and Models
+of the Brain,'' preprint arXiv \textbf{arXiv:2509.26507} [cs.NE], wrz.~2025.
+Kod: \url{https://github.com/pathwaycom/bdh}.
+
+\bibitem{snntorch}
+J.~K. Eshraghian, M.~Ward, E.~Neftci, X.~Wang, G.~Lenz, G.~Dwivedi,
+M.~Bennamoun, D.~S. Jeong i W.~D. Lu,
+,,Training Spiking Neural Networks Using Lessons From Deep Learning''
+(artykuł tutorialowy \texttt{snnTorch}),
+arXiv:2109.12894; opublikowane w \emph{Proceedings of the IEEE}, 2023.
+
+\bibitem{spikingjelly}
+W.~Fang, Y.~Chen, J.~Ding, Z.~Yu, T.~Masquelier, D.~Chen, L.~Huang,
+H.~Zhou, G.~Li i Y.~Tian,
+,,SpikingJelly: An open-source machine learning infrastructure platform for
+spike-based intelligence,'' \emph{Science Advances}, vol.~10, eadi1480, 2024.
+
+\bibitem{loihi}
+M.~Davies i in.,
+,,Loihi: A Neuromorphic Manycore Processor with On-Chip Learning,''
+\emph{IEEE Micro}, vol.~38, no.~1, s.~82--90, 2018.
+
+\bibitem{stdp}
+G.-Q. Bi i M.-M. Poo,
+,,Synaptic Modifications in Cultured Hippocampal Neurons: Dependence on Spike
+Timing, Synaptic Strength, and Postsynaptic Cell Type,''
+\emph{Journal of Neuroscience}, vol.~18, no.~24, s.~10464--10472, 1998.
+
+\bibitem{surrogate}
+E.~O. Neftci, H.~Mostafa i F.~Zenke,
+,,Surrogate Gradient Learning in Spiking Neural Networks,''
+\emph{IEEE Signal Processing Magazine}, vol.~36, no.~6, s.~51--63, 2019.
+arXiv:1901.09948.
+
+\end{thebibliography}
+
+\end{document}
