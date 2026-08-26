@@ -35,3 +35,4 @@ paper/*.aux
 paper/*.log
 paper/*.out
 texput.log
+audits/
