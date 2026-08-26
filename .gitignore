@@ -30,3 +30,8 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+# LaTeX build artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+texput.log
