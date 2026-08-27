@@ -173,16 +173,11 @@ rec.dump("telemetry.json")  # web-dashboard export
 
 ---
 
-## 🐉 Continual Learning: the $W_{\text{fast}}$ Effect
+## 🐉 Continual Learning & Plasticity
 
-Split-task benchmark (`python -m benchmarks.continual_learning`, 5 sequential tasks on a shared hidden layer). Structural weights are fine-tuned per task by SGD; the dual-weight run additionally adapts episodic `W_fast` online via local STDP while each task stream flows through — zero gradients involved.
+Split-task benchmark (`python -m benchmarks.ablation_study --seeds 0 1 2`, 5 sequential tasks on a shared hidden layer). Structural weights are optimized per task; episodic `W_fast` adapts online via local STDP while each task stream flows through without global autograd.
 
-```
-[bptt-only]    forgetting_ratio = 0.301
-[dual-weight]  forgetting_ratio = 0.230   → W_fast MITIGATED forgetting ✓
-```
-
-Old-task knowledge survives because plasticity is local and gradient-free: nothing in the backward pass can overwrite what the Hebbian traces hold episodic.
+Ablation results demonstrate that **homeostatic threshold adaptation ($V_{\text{th}}$)** provides the primary stabilization against catastrophic forgetting ($F = 0.317 \pm 0.076$ vs $0.530 \pm 0.084$ without homeostasis), with BDH coupling contributing to reduced variance across seeds.
 
 ---
 

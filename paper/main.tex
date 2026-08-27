@@ -30,11 +30,10 @@ bitwise inference path, (iii) a dual-weight plasticity engine separating
 structural weights ($\Wslow$, trained offline by BPTT) from episodic weights
 ($\Wfast$, updated online by local three-factor Hebbian STDP under
 \texttt{no\_grad}), and (iv) gradient-free homeostatic threshold regulation.
-On synthetic event-stream classification, BDH-Spike sustains 91--93\%
-temporal sparsity and requires $9.1\times$ fewer synaptic operations than
-its dense equivalent. On a five-task split benchmark, episodic $\Wfast$
-plasticity reduces measured catastrophic forgetting by ${\sim}24\%$ relative
-to BPTT-only training. All 123 unit tests pass with strict no-gradient-leak
+On synthetic event-stream classification, BDH-Spike sustains 83--87\%
+temporal sparsity and requires $10\times$ fewer synaptic operations than
+its dense equivalent. In multi-task continual learning evaluations, homeostatic threshold regulation
+substantially stabilizes retention. All 137 unit tests pass with strict no-gradient-leak
 and binary-domain guarantees enforced by construction.
 \end{abstract}
 
@@ -238,8 +237,7 @@ drop over all tasks except the last:
 F = \frac{1}{K-1}\sum_{k=1}^{K-1}
 \Big(\max_j \mathrm{acc}_k[j] - \mathrm{acc}_k[K]\Big).
 \end{equation}
-Adaptive threshold homeostasis combined with dual-weight plasticity stabilizes continual learning,
-preventing severe degradation ($F = 0.317 \pm 0.076$ vs $F = 0.530 \pm 0.084$ without homeostasis).
+Ablation results reveal a differentiated contribution of the proposed mechanisms. Homeostatic threshold adaptation provides the clearest improvement in continual-learning stability, whereas BDH coupling shows a favorable mean trend with substantial seed variability. Under the current synthetic benchmark and STDP configuration, online fast-weight plasticity does not show a consistent reduction in forgetting, motivating further investigation of its role in rapid adaptation rather than treating it as an established forgetting mitigation mechanism.
 
 \section{Software Guarantees}
 The implementation enforces its invariants mechanically: 137 unit tests
@@ -253,9 +251,9 @@ weight clamping saturation. All tests pass in under four seconds on CPU.
 BDH-Spike demonstrates that the Baby Dragon Hatchling architecture can be
 realized natively in the spiking regime without sacrificing trainability or
 continual adaptability: surrogate gradients preserve BPTT trainability, a
-bitwise attention path targets neuromorphic silicon directly, and dual-weight
-plasticity plus homeostasis deliver measurable continual-learning benefits
-at 91--93\% activity sparsity. Future work includes Loihi~2/Lava export,
+bitwise attention path targets neuromorphic silicon directly, and
+homeostasis combined with BDH coupling delivers measurable continual-learning stability
+at $>83\%$ activity sparsity. Future work includes Loihi~2/Lava export,
 on-chip POPCOUNT kernels, and large-scale event-vision benchmarks.
 
 \begin{thebibliography}{9}
