@@ -127,7 +127,7 @@ class TestBDHSpikeViT:
         assert logits.shape == (2, 3)
 
     def test_internal_sparsity_above_70pct(self, vit: BDHSpikeViT) -> None:
-        """Energy-first invariant: hidden spike trains must stay sparse."""
+        """Sparsity-first invariant: hidden spike trains must stay sparse."""
         images = torch.rand(B, 1, 28, 28) * 0.5
         with torch.no_grad():
             spikes_in = vit._encode_tokens(vit.patch_embed(images))

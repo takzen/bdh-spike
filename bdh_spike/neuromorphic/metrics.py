@@ -31,7 +31,7 @@ def calculate_sparsity(spikes: torch.Tensor) -> float:
         spikes: Binary-valued tensor (any shape), values in ``{0, 1}``.
 
     Returns:
-        Sparsity in ``[0, 1]`` — the higher, the more energy-frugal.
+        Sparsity in ``[0, 1]`` — the higher, the more computationally sparse.
     """
     if spikes.numel() == 0:
         raise ValueError("cannot compute sparsity of an empty tensor")

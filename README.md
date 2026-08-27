@@ -165,7 +165,7 @@ rec.dump("telemetry.json")  # web-dashboard export
 - [x] **Stage 1** — Repository & environment initialization (uv, Python 3.13, pyproject)
 - [x] **Stage 2** — Neuromorphic core: `BDHSpikeCell` (PLIF decay, hard reset, fast-sigmoid surrogate, BDH recurrent coupling)
 - [x] **Stage 3** — Spike-driven attention: softmax-free associative masking on binary spikes
-- [x] **Stage 4** — Dual plasticity engine: online STDP + homeostatic threshold adaptation (anti catastrophic-forgetting)
+- [x] **Stage 4** — Dual plasticity engine: online STDP + homeostatic threshold adaptation (continual learning stability)
 - [x] **Stage 5** — Model assembly: Vision-BDH-Spike backbone + streaming sequence model + spike encoders
 - [x] **Stage 6** — Energy metrics & benchmarks: SOPs vs FLOPs tracker, N-MNIST eval, continual-learning split-task test
 - [x] **Stage 7** — Diagnostics: spike raster plots, membrane potential traces, telemetry HUD

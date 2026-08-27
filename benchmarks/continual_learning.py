@@ -235,9 +235,9 @@ def main() -> None:
     a_fr = results["bptt-only"][1]
     b_fr = results["dual-weight"][1]
     verdict = (
-        "W_fast MITIGATED forgetting ✓"
+        "dual-weight lower forgetting in this run (verify across seeds)"
         if b_fr < a_fr
-        else "no benefit observed under these settings ✗"
+        else "no benefit observed in this run (verify across seeds)"
     )
     print(f"\nverdict: dual-weight ({b_fr:.3f}) vs bptt-only ({a_fr:.3f}) → {verdict}")
 

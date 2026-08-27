@@ -1,7 +1,7 @@
 """Event-dataset benchmark: N-MNIST / DVS-Gesture / synthetic (Stage 6).
 
 Evaluates the BDH-Spike stack on neuromorphic event streams and reports
-accuracy together with energy-first metrics (SOPs vs dense FLOPs, temporal
+accuracy together with sparsity-first metrics (SOPs vs dense FLOPs, temporal
 sparsity) using :mod:`bdh_spike.neuromorphic.metrics`.
 
 Examples::
