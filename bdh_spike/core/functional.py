@@ -25,7 +25,7 @@ class FastSigmoidSurrogate(torch.autograd.Function):
         ctx, x: torch.Tensor, threshold: torch.Tensor, slope: float
     ) -> torch.Tensor:
         ctx.save_for_backward(x)
-        ctx.threshold = threshold
+        ctx.threshold = threshold.detach().clone()
         ctx.slope = slope
         return (x >= threshold).to(dtype=x.dtype)
 

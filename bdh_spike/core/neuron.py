@@ -101,10 +101,11 @@ class BDHSpikeCell(nn.Module):
             Tuple ``(spikes, new_state)`` where ``spikes`` is binary ``[B, C]``.
         """
         # Membrane integration: leaky decay + input + BDH coupling − prior reset.
-        mem = self.beta * state.mem + x + state.m_bdh - state.prev_spikes * self.v_th
+        v_th = self.v_th.detach().clone()
+        mem = self.beta * state.mem + x + state.m_bdh - state.prev_spikes * v_th
 
         # Spike trigger with surrogate gradient (binary in {0, 1}).
-        spikes = spike_fn(mem - self.v_th, threshold=self.v_th, slope=self.surrogate_slope)
+        spikes = spike_fn(mem, threshold=v_th, slope=self.surrogate_slope)
 
         # Hard reset: membrane forced to 0 wherever a spike was emitted.
         mem = mem * (1.0 - spikes)
