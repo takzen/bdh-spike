@@ -114,14 +114,14 @@ V_s = \Theta(X W_v - V_{\text{th}}),
 \begin{equation}
 C[n,m] = \sum_c Q_s[n,c] \wedge K_s[m,c], \qquad
 A = \Theta(C - \theta_a), \qquad
-Y = \Theta(A V_s - V_{\text{out}}).
+Y = \Theta(A V_s - V_{\text{out}}),
 \end{equation}
-Dwa tryby wykonania współdzielą semantykę jednej ścieżki kodu: tryb
-\emph{surrogate} (binarne floaty niosące gradienty surogatowe do
-$W_q,W_k,W_v$) oraz tryb \emph{bitwise} produkujący ściśle
-boole'owo-całkowitoliczbowy graf --- boolean'ową maskę AND, dokładną
-akumulację uint8/int16 --- mapujący się jeden-do-jeden na instrukcje
-POPCOUNT/AC sprzętu neuromorficznego. W trybie bitwise po zakodowaniu wejścia
+gdzie $\theta_a \ge 1$ jest progiem asocjacyjnym (buforem wolnym od gradientu, domyślnie $\theta_a = 1$) określającym minimalną liczbę współwystępujących kanałów impulsowych w wymiarze głowicy $d_h = C/H$ wymaganą do otwarcia krawędzi uwagi między tokenami $n$ i $m$.
+Dwa tryby wykonania dzielą tę samą semantykę: tryb \emph{surogatowy}
+(binarne liczby float niosące gradient surogatowy wstecz do $W_q,W_k,W_v$)
+oraz tryb \emph{bitowy} generujący wyłącznie graf bool/int --- binarna maska
+AND, dokładna akumulacja uint8/int16 --- mapujący się wprost na instrukcje
+neuromorficzne POPCOUNT/AC. Po zakodowaniu wejścia w trybie bitowym
 nie powstaje żaden tensor zmiennoprzecinkowy.
 
 \section{Plastyczność o podwójnych wagach}

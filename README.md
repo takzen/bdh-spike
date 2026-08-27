@@ -131,7 +131,7 @@ import torch
 from bdh_spike.core import SpikeDrivenAttention
 
 attn = SpikeDrivenAttention(embed_dim=64, num_heads=4)
-y = attn(torch.randn(16, 4, 32, 64))      # [T, B, N, C] -> binary spikes [T, B, N, C]
+y = attn(torch.randn(16, 4, 32, 64))  # [T, B, N, C] -> binary spikes [T, B, N, C]
 
 # Deployment: strictly boolean-integer graph — zero float tensors after encoding.
 hw = SpikeDrivenAttention(embed_dim=64, num_heads=4, mode="bitwise")
@@ -143,8 +143,8 @@ Dual-weight plasticity — structural weights by BPTT, episodic weights online b
 from bdh_spike.plasticity import DualWeightLinear
 
 syn = DualWeightLinear(fan_in=64, fan_out=32)
-current = syn(spikes_in)                          # differentiable via W_slow
-state = syn.plastic_step(spikes_in, spikes_out)   # grad-free W_fast update
+current = syn(spikes_in)  # differentiable via W_slow
+state = syn.plastic_step(spikes_in, spikes_out)  # grad-free W_fast update
 ```
 
 Homeostatic threshold adaptation keeps firing in the healthy band:
@@ -153,8 +153,8 @@ Homeostatic threshold adaptation keeps firing in the healthy band:
 from bdh_spike.plasticity import AdaptiveThreshold
 
 homeo = AdaptiveThreshold(target_rate=0.10)
-homeo.observe_sequence(output_spikes)             # seizure → V_th ↑ ; silence → V_th ↓
-homeo.apply_to(cell)                              # inject into BDHSpikeCell.v_th
+homeo.observe_sequence(output_spikes)  # seizure → V_th ↑ ; silence → V_th ↓
+homeo.apply_to(cell)  # inject into BDHSpikeCell.v_th
 ```
 
 Terminal telemetry & figures:
@@ -162,11 +162,11 @@ Terminal telemetry & figures:
 ```python
 from bdh_spike.utils import TelemetryRecorder, ascii_raster
 
-print(ascii_raster(spikes))                       # text raster: █ = spike, · = silence
+print(ascii_raster(spikes))  # text raster: █ = spike, · = silence
 rec = TelemetryRecorder(fan_out=32)
 rec.update(spikes)
-rec.render()                                      # terminal HUD
-rec.dump("telemetry.json")                        # web-dashboard export
+rec.render()  # terminal HUD
+rec.dump("telemetry.json")  # web-dashboard export
 ```
 
 ---

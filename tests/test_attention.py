@@ -178,3 +178,47 @@ class TestDeterminism:
         g = torch.Generator().manual_seed(11)
         x2 = 2.0 * torch.randn(T, B, N, C, generator=g)
         assert torch.equal(att(x1), att(x2))
+
+
+class TestAttentionThreshold:
+    """Dedicated tests for attention threshold theta_a (Plan 2, Section 3)."""
+
+    def test_threshold_buffer_storage_and_no_grad(self) -> None:
+        att = SpikeDrivenAttention(embed_dim=C, num_heads=H, attn_threshold=2)
+        assert att.attn_th.item() == 2.0
+        assert not att.attn_th.requires_grad
+        assert "attn_th" in dict(att.named_buffers())
+
+    def test_threshold_selectivity(self) -> None:
+        """Higher theta_a requires more overlapping spike channels to fire."""
+        att1 = SpikeDrivenAttention(embed_dim=16, num_heads=1, attn_threshold=1, mode="bitwise")
+        att2 = SpikeDrivenAttention(embed_dim=16, num_heads=1, attn_threshold=3, mode="bitwise")
+
+        # Construct specific Q and K with known overlap count = 2
+        q = torch.zeros(1, 1, 1, 1, 16, dtype=torch.bool)
+        k = torch.zeros(1, 1, 1, 1, 16, dtype=torch.bool)
+        v = torch.ones(1, 1, 1, 1, 16, dtype=torch.bool)
+        q[..., :2] = True
+        k[..., :2] = True  # overlap = 2
+
+        # In att1 (theta_a=1 <= 2), mask fires
+        _, a1 = att1._attend_bitwise(q, k, v)
+        assert a1.item() is True
+
+        # In att2 (theta_a=3 > 2), mask does not fire
+        _, a2 = att2._attend_bitwise(q, k, v)
+        assert a2.item() is False
+
+    def test_surrogate_and_bitwise_parity_under_custom_threshold(self) -> None:
+        for th in [1, 2, 4]:
+            att_s = SpikeDrivenAttention(
+                embed_dim=C, num_heads=H, attn_threshold=th, mode="surrogate"
+            )
+            att_b = SpikeDrivenAttention(
+                embed_dim=C, num_heads=H, attn_threshold=th, mode="bitwise"
+            )
+            att_b.W_q.weight.data.copy_(att_s.W_q.weight.data)
+            att_b.W_k.weight.data.copy_(att_s.W_k.weight.data)
+            att_b.W_v.weight.data.copy_(att_s.W_v.weight.data)
+            x = drive()
+            assert torch.equal(att_s(x), att_b(x))

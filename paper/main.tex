@@ -104,8 +104,9 @@ V_s = \Theta(X W_v - V_{\text{th}}),
 \begin{equation}
 C[n,m] = \sum_c Q_s[n,c] \wedge K_s[m,c], \qquad
 A = \Theta(C - \theta_a), \qquad
-Y = \Theta(A V_s - V_{\text{out}}).
+Y = \Theta(A V_s - V_{\text{out}}),
 \end{equation}
+where $\theta_a \ge 1$ is the associative threshold (stored as a gradient-free buffer, default $\theta_a = 1$) defining the minimal count of co-active spike channels across head dimension $d_h = C/H$ required to open an attention edge between tokens $n$ and $m$.
 Two execution modes share one code path semantics: a \emph{surrogate} mode
 (binary-valued floats carrying surrogate gradients into $W_q,W_k,W_v$) and
 a \emph{bitwise} mode producing a strictly boolean/integer graph --- boolean

@@ -16,9 +16,9 @@ Measures:
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, dataclass, field
 import json
 import math
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -26,8 +26,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from bdh_spike.models import BDHSpikeSeq, BDHSpikeViT
-from bdh_spike.neuromorphic.metrics import SOPSMeter, SpikeSparsityTracker, calculate_sparsity
+from bdh_spike.models import BDHSpikeViT
 from benchmarks.continual_learning import CLModel, forgetting_ratio, make_tasks
 from benchmarks.n_mnist_eval import EventClassifier, evaluate, make_loader, synthetic_events
 
@@ -62,6 +61,7 @@ class ExperimentConfig:
     # Neuron & Plasticity defaults
     beta_init: float = 0.9
     v_th: float = 1.0
+    attn_threshold: int = 1
     surrogate_slope: float = 25.0
     bdh_coupling: float = 0.5
     bdh_decay: float = 0.8
@@ -160,9 +160,7 @@ def run_cl_benchmark(
         time_steps=config.cl_time_steps,
     )
 
-    model = CLModel(
-        fan_in=config.cl_fan_in, hidden_dim=config.cl_hidden, num_classes=num_classes
-    )
+    model = CLModel(fan_in=config.cl_fan_in, hidden_dim=config.cl_hidden, num_classes=num_classes)
     # Apply ablation overrides
     model.hidden_blk.cell.bdh_coupling = bdh_coupling
     model.readout.cell.bdh_coupling = bdh_coupling
@@ -215,8 +213,7 @@ def run_attention_mode_comparison(
 ) -> dict[str, Any]:
     """Compare bitwise vs surrogate attention modes."""
     torch.manual_seed(seed)
-    T, B, N, C = 8, 4, 16, 32
-    x = torch.randn(T, B, N, C)
+    batch_size = 4
 
     vit_surrogate = BDHSpikeViT(
         img_size=28,
@@ -240,7 +237,7 @@ def run_attention_mode_comparison(
     )
     vit_bitwise.load_state_dict(vit_surrogate.state_dict())
 
-    test_imgs = torch.rand(B, 1, 28, 28)
+    test_imgs = torch.rand(batch_size, 1, 28, 28)
     with torch.no_grad():
         out_surr = vit_surrogate(test_imgs)
         out_bitw = vit_bitwise(test_imgs)
