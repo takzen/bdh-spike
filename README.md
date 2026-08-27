@@ -61,26 +61,15 @@ $$\text{SOPs} = \sum_{t=1}^{T} \text{nnz}(S_{\text{in}}[t]) \times \text{FanOut}
 | Inference learning | ❌ Frozen weights | ✅ Online STDP ($W_{\text{fast}}$) |
 | Target hardware | GPU / TPU | Neuromorphic (Loihi 2) / Edge MCU |
 
-**Measured on the synthetic event-stream benchmark** (`python -m benchmarks.n_mnist_eval --dataset synthetic`, T=8):
+**Measured multi-seed ablation study** (`python -m benchmarks.ablation_study --seeds 0 1 2`, $N=3$ seeds, mean $\pm$ std):
 
-```
-[epoch 03] acc=37.50% | sparsity_ema=91.53% | SOPs=5.52e+05 dense_FLOPs=5.02e+06 (FLOPs/SOP ×9.1)
-```
-
-| Quantity | Measured value |
-|---|---|
-| Temporal spike sparsity | **91–93 %** (target band 85–95 % ✓) |
-| Energy advantage vs dense sweep | **×9.1 fewer operations** (FLOPs/SOP ratio) |
-
-Temporal sparsity trace over one evaluation pass:
-
-```
-100% | ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
- 95% | ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░
- 90% | ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-     +----------------------------------------------------
-      t=0        silent neurons stay silent (AC-only events)
-```
+| Ablation Variant | Configuration | Sparsity (%) | SOPs / sample | FLOPs/SOP Ratio | CL Forgetting $F \downarrow$ |
+|---|---|:---:|:---:|:---:|:---:|
+| **A: Full BDH-Spike** | $g=0.5, W_{\text{fast}}=\text{ON}, V_{\text{th}}=\text{adapt}$ | **$83.7 \pm 3.0\%$** | $2.00\text{M} \pm 0.06\text{M}$ | **$10.03 \pm 0.29\times$** | **$0.317 \pm 0.076$** |
+| **B: No BDH Coupling** | $g=0.0, W_{\text{fast}}=\text{ON}, V_{\text{th}}=\text{adapt}$ | $82.5 \pm 7.5\%$ | $2.00\text{M} \pm 0.06\text{M}$ | $10.03 \pm 0.29\times$ | $0.387 \pm 0.200$ |
+| **C: No $W_{\text{fast}}$** | $g=0.5, W_{\text{fast}}=\text{OFF}, V_{\text{th}}=\text{adapt}$ | $83.7 \pm 3.0\%$ | $2.00\text{M} \pm 0.06\text{M}$ | $10.03 \pm 0.29\times$ | $0.285 \pm 0.214$ |
+| **D: No Homeostasis** | $g=0.5, W_{\text{fast}}=\text{ON}, V_{\text{th}}=\text{const}$ | $83.4 \pm 0.3\%$ | $2.00\text{M} \pm 0.06\text{M}$ | $10.03 \pm 0.29\times$ | $0.530 \pm 0.084$ |
+| **E: Bitwise vs Surrogate** | Float-free vs surrogate graph | — | — | — | **$100\%$ exact match** |
 
 ---
 

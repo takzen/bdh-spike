@@ -14,7 +14,7 @@ Examples::
 
 Real datasets require the SpikingJelly raw archives::
 
-    from spikingjelly.datasets.n_mnist import NMIST   # manual download first
+    from spikingjelly.datasets.n_mnist import NMNIST   # manual download first
 """
 
 from __future__ import annotations
@@ -57,12 +57,12 @@ def real_event_dataset(name: str, root: str, time_steps: int, train: bool) -> Da
     """Load N-MNIST / DVS-Gesture via SpikingJelly (archives must exist)."""
     try:
         from spikingjelly.datasets.dvs128_gesture import DVS128Gesture
-        from spikingjelly.datasets.n_mnist import NMIST
+        from spikingjelly.datasets.n_mnist import NMNIST
     except ImportError as exc:  # pragma: no cover
         raise SystemExit(
             f"SpikingJelly is required for {name}: pip install spikingjelly ({exc})"
         ) from exc
-    cls = NMIST if name == "n-mnist" else DVS128Gesture
+    cls = NMNIST if name == "n-mnist" else DVS128Gesture
     try:
         return cls(
             root=root,

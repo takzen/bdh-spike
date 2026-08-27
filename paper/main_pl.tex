@@ -179,14 +179,17 @@ danych ciągłych. Trzy enkodery eventów konwertują sygnały rzeczywiste na
 pociągi impulsów: rate (Bernoulliego), latency (time-to-first-spike) oraz
 delta (wykrywanie zmian ON/OFF w stylu kamer eventowych).
 
-\section{Rachunka energii: SOPs vs.\ FLOPs}
-Operacje synaptyczne skalują się aktywnymi impulsami, a nie gęstością
-tensora:
+\section{Rachunek energii: SOPs vs.\ FLOPs}
+Operacje synaptyczne skalują się z aktywnymi impulsami, a nie gęstością
+tensorów:
 \begin{equation}
 \text{SOPs} = \sum_{t=1}^{T} \mathrm{nnz}(S_{\text{in}}[t]) \times
 \text{FanOut},
 \end{equation}
 wobec gęstego odpowiednika $2\,T B\,\text{FanIn}\,\text{FanOut}$ FLOPs.
+Ściśle rozgraniczamy algorytmiczną liczbę operacji od fizycznej energii sprzętowej:
+liczba SOPs stanowi dokładny rachunek matematyczny, podczas gdy zużycie energii
+w dżulach zależy od konkretnej implementacji krzemowej (np. Intel Loihi~2 lub akceleratory POPCOUNT).
 Tabela~\ref{tab:energy} przeciwstawia oba reżimy; tabela~\ref{tab:ablation}
 raportuje zmierzone wyniki wariantów ablacyjnych i powtórzeń losowych.
 
@@ -254,8 +257,8 @@ Homeostaza adaptacyjnego progu w połączeniu z plastycznością o podwójnych w
 stabilizuje uczenie ciągłe, chroniąc przed głęboką degradacją ($F = 0{,}317 \pm 0{,}076$ vs $F = 0{,}530 \pm 0{,}084$ bez homeostazy).
 
 \section{Gwarancje implementacji}
-Implementacja egzekwuje swoje niezmienniki mechanicznie: 132 testy
-jednostkowe asertują binarność wyjść, dokładne układy $[T,B,C]$,
+Implementacja egzekwuje swoje niezmienniki mechanicznie: 137 testów
+jednostkowych asertuje binarność wyjść, dokładne układy $[T,B,C]$,
 semantykę twardego resetu, poprawność surogatu względem postaci zamkniętej
 z równania~\eqref{eq:surrogate}, wykluczenie $\Wfast$ z
 \texttt{parameters()} bez przecieku gradientów przy włączonym trybie grad,

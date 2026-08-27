@@ -173,6 +173,9 @@ Synaptic operations scale with active spikes rather than tensor density:
 \text{FanOut},
 \end{equation}
 against a dense equivalent of $2\,T B\,\text{FanIn}\,\text{FanOut}$ FLOPs.
+We strictly distinguish between algorithmic operation counts and physical hardware energy:
+operation counts represent exact mathematical tallies, whereas physical joule dissipation
+depends on the target silicon implementation (e.g., Intel Loihi~2 or custom POPCOUNT accelerators).
 Table~\ref{tab:energy} contrasts the regimes; Table~\ref{tab:ablation}
 reports measured results across ablation variants and random seeds.
 
@@ -239,7 +242,7 @@ Adaptive threshold homeostasis combined with dual-weight plasticity stabilizes c
 preventing severe degradation ($F = 0.317 \pm 0.076$ vs $F = 0.530 \pm 0.084$ without homeostasis).
 
 \section{Software Guarantees}
-The implementation enforces its invariants mechanically: 132 unit tests
+The implementation enforces its invariants mechanically: 137 unit tests
 assert binary-domain outputs, exact $[T,B,C]$ layouts, hard-reset semantics,
 surrogate correctness against the closed form of Eq.~\eqref{eq:surrogate},
 $\Wfast$ exclusion from \texttt{parameters()} with no gradient leak under

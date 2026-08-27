@@ -320,3 +320,67 @@ class TestAdaptiveThresholdHomeostat:
     def test_observe_sequence_validates_rank(self, homeo: AdaptiveThreshold) -> None:
         with pytest.raises(ValueError):
             homeo.observe_sequence(torch.ones(B, Cin))
+
+
+class TestSTDPAnalyticalMultiStep:
+    """Dedicated analytical verification of Eq. (9)-(10) over multiple steps (PLAN2 §12)."""
+
+    def test_exact_closed_form_multi_step_trajectory(self) -> None:
+        tau = 2.0
+        eta_p, eta_m = 0.10, 0.05
+        net = DualWeightLinear(
+            fan_in=1, fan_out=1, tau_pre=tau, tau_post=tau, ltp_rate=eta_p, ltd_rate=eta_m
+        )
+        d = math.exp(-1.0 / tau)
+
+        # t=0: pre=1, post=0 -> LTP=0, LTD=0 -> w_fast=0
+        # t=1: pre=0, post=1 -> LTP=eta_p*d, LTD=0 -> w_fast = eta_p*d
+        # t=2: pre=1, post=0 -> LTP=0, LTD=eta_m*d -> w_fast = eta_p*d - eta_m*d
+        pre = torch.tensor([[[1.0]], [[0.0]], [[1.0]]])
+        post = torch.tensor([[[0.0]], [[1.0]], [[0.0]]])
+
+        state = net.run_episode(pre, post)
+
+        expected_w = eta_p * d - eta_m * d
+        expected_a_pre = d**2 + 1.0
+        expected_a_post = d
+
+        assert net.w_fast[0, 0].item() == pytest.approx(expected_w, rel=1e-5)
+        assert state.a_pre[0, 0].item() == pytest.approx(expected_a_pre, rel=1e-5)
+        assert state.a_post[0, 0].item() == pytest.approx(expected_a_post, rel=1e-5)
+
+
+class TestHomeostasisFourStates:
+    """Verification of the 4 adaptation regimes and feedback sign in Eq. (11)-(12) (PLAN2 §13)."""
+
+    def test_state_1_rate_below_target_lowers_v_th(self) -> None:
+        homeo = AdaptiveThreshold(
+            num_channels=None, target_rate=0.5, rate_beta=0.0, eta=0.1, v_th_init=1.0
+        )
+        homeo.step(torch.zeros(1, 4))  # r=0 < 0.5
+        # V_th = 1.0 + 0.1 * (0.0 - 0.5) = 0.95
+        assert float(homeo.v_th) == pytest.approx(0.95, rel=1e-5)
+
+    def test_state_2_rate_above_target_raises_v_th(self) -> None:
+        homeo = AdaptiveThreshold(
+            num_channels=None, target_rate=0.2, rate_beta=0.0, eta=0.1, v_th_init=1.0
+        )
+        homeo.step(torch.ones(1, 4))  # r=1 > 0.2
+        # V_th = 1.0 + 0.1 * (1.0 - 0.2) = 1.08
+        assert float(homeo.v_th) == pytest.approx(1.08, rel=1e-5)
+
+    def test_state_3_clamping_at_v_min(self) -> None:
+        homeo = AdaptiveThreshold(
+            num_channels=None, target_rate=0.8, eta=5.0, v_min=0.2, v_th_init=1.0
+        )
+        for _ in range(10):
+            homeo.step(torch.zeros(1, 4))
+        assert float(homeo.v_th) == pytest.approx(0.2, rel=1e-5)
+
+    def test_state_4_clamping_at_v_max(self) -> None:
+        homeo = AdaptiveThreshold(
+            num_channels=None, target_rate=0.1, eta=5.0, v_max=3.0, v_th_init=1.0
+        )
+        for _ in range(10):
+            homeo.step(torch.ones(1, 4))
+        assert float(homeo.v_th) == pytest.approx(3.0, rel=1e-5)
