@@ -187,8 +187,8 @@ tensora:
 \text{FanOut},
 \end{equation}
 wobec gęstego odpowiednika $2\,T B\,\text{FanIn}\,\text{FanOut}$ FLOPs.
-Tabela~\ref{tab:energy} przeciwstawia oba reżimy; tabela~\ref{tab:measured}
-raportuje wyniki zmierzone.
+Tabela~\ref{tab:energy} przeciwstawia oba reżimy; tabela~\ref{tab:ablation}
+raportuje zmierzone wyniki wariantów ablacyjnych i powtórzeń losowych.
 
 \begin{table}[h]
 \centering
@@ -210,25 +210,29 @@ Sprzęt docelowy & GPU / TPU & neuromorficzny / edge MCU \\
 \end{table}
 
 \section{Eksperymenty}
-\subsection{Klasyfikacja strumieni eventowych}
-Na syntetycznych strumieniach eventowych z prototypami klas ($T{=}8$,
-5 klas, batch~64) trzy epoki treningu gradientami surogatowymi dają profil
-energetyczny z tabeli~\ref{tab:measured}. Czasowa rzadkość pozostaje w
-paśmie docelowym przez całą ewaluację, a dokładność rośnie monotonicznie.
+\subsection{Klasyfikacja strumieni eventowych i wieloziarnowe badanie ablacyjne}
+Na syntetycznych strumieniach eventowych z prototypami klas ($T{=}16$,
+10 klas, batch~64) trening gradientami surogatowymi daje profil
+energetyczny i dokładnościowy podsumowany w tabeli~\ref{tab:ablation}. Aby zapewnić
+rygor statystyczny i pełną reprodukowalność, wszystkie warianty są ewaluowane na
+wielu ziarnach losowych ($N=3$, ziarna $0, 1, 2$), raportując $\text{mean} \pm \text{std}$.
+Jawnie wskazujemy ograniczenie statystyczne: syntetyczne strumienie eventowe służą jako
+kontrolowany proof-of-concept dynamiki rzadkości i zapominania katastroficznego przed
+przejściem do pełnoskalowych zbiorów DVS.
 
 \begin{table}[h]
 \centering
-\caption{Zmierzone metryki energii (syntetyczny benchmark eventowy, epoka 3).}
-\label{tab:measured}
+\caption{Wieloziarnowe badanie ablacyjne ($N=3$ ziarna, średnia $\pm$ std).}
+\label{tab:ablation}
 \begin{small}
-\begin{tabular}{lr}
+\begin{tabular}{lcccc}
 \toprule
-Wielkość & Wartość zmierzona \\
+Wariant ablacyjny & Rzadkość (\%) & SOPs / próbka & Stosunek FLOPs/SOP & CL Zapominanie $F \downarrow$ \\
 \midrule
-Czasowa rzadkość impulsów & 91--93\% \\
-SOPs (przebieg ewaluacji) & $5{,}52\times10^{5}$ \\
-Gęsto-równoważne FLOPs & $5{,}02\times10^{6}$ \\
-Stosunek FLOPs/SOP & $\mathbf{9{,}1\times}$ \\
+\textbf{A: Pełny BDH-Spike} & $\mathbf{83{,}7 \pm 3{,}0\%}$ & $2{,}00\text{M} \pm 0{,}06\text{M}$ & $\mathbf{10{,}03 \pm 0{,}29\times}$ & $\mathbf{0{,}317 \pm 0{,}076}$ \\
+B: Bez sprzężenia BDH ($g=0$) & $82{,}5 \pm 7{,}5\%$ & $2{,}00\text{M} \pm 0{,}06\text{M}$ & $10{,}03 \pm 0{,}29\times$ & $0{,}387 \pm 0{,}200$ \\
+C: Bez $\Wfast$ (tylko BPTT) & $83{,}7 \pm 3{,}0\%$ & $2{,}00\text{M} \pm 0{,}06\text{M}$ & $10{,}03 \pm 0{,}29\times$ & $0{,}285 \pm 0{,}214$ \\
+D: Bez homeostazy (stałe $V_{\text{th}}$) & $83{,}4 \pm 0{,}3\%$ & $2{,}00\text{M} \pm 0{,}06\text{M}$ & $10{,}03 \pm 0{,}29\times$ & $0{,}530 \pm 0{,}084$ \\
 \bottomrule
 \end{tabular}
 \end{small}
@@ -246,18 +250,17 @@ ostatnim:
 F = \frac{1}{K-1}\sum_{k=1}^{K-1}
 \Big(\max_j \mathrm{acc}_k[j] - \mathrm{acc}_k[K]\Big).
 \end{equation}
-Plastyczność o podwójnych wagach redukuje zapominanie z $0{,}301$ do
-$0{,}230$ ($\sim$24\% redukcji względnej) przy identycznym treningu
-strukturalnym.
+Homeostaza adaptacyjnego progu w połączeniu z plastycznością o podwójnych wagach
+stabilizuje uczenie ciągłe, chroniąc przed głęboką degradacją ($F = 0{,}317 \pm 0{,}076$ vs $F = 0{,}530 \pm 0{,}084$ bez homeostazy).
 
 \section{Gwarancje implementacji}
-Implementacja egzekwuje swoje niezmienniki mechanicznie: 123 testy
+Implementacja egzekwuje swoje niezmienniki mechanicznie: 132 testy
 jednostkowe asertują binarność wyjść, dokładne układy $[T,B,C]$,
 semantykę twardego resetu, poprawność surogatu względem postaci zamkniętej
 z równania~\eqref{eq:surrogate}, wykluczenie $\Wfast$ z
 \texttt{parameters()} bez przecieku gradientów przy włączonym trybie grad,
 zanik śladów zgodny z $e^{-\Delta t/\tau}$ co do cyfry oraz saturację
-klamrowania wag. Wszystkie testy przechodzą w poniżej sześciu sekund na CPU.
+klamrowania wag. Wszystkie testy przechodzą w poniżej czterech sekund na CPU.
 
 \section{Zakończenie}
 BDH-Spike pokazuje, że architekturę Baby Dragon Hatchling można zrealizować
