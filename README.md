@@ -1,11 +1,14 @@
 # ⚡ BDH-Spike
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22139050.svg)](https://doi.org/10.5281/zenodo.22139050)
+
 > **Native Spiking Neural Network (SNN) implementation of the Baby Dragon Hatchling (BDH) architecture** — built for Neuromorphic & Edge AI with Continual Learning.
 
 `BDH-Spike` bridges the theoretical bio-physical properties of the **Baby Dragon Hatchling (BDH)** architecture with **discrete event-driven Spiking Neural Networks**. No floating-point activations inside the core layers. No global backpropagation during inference. Just spikes.
 
 ## 🛠️ Tech Stack
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22139050.svg)](https://doi.org/10.5281/zenodo.22139050)
 ![Python](https://img.shields.io/badge/Python-3.13+-3776AB?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.x-EE4C2C?logo=pytorch&logoColor=white)
 ![uv](https://img.shields.io/badge/Managed%20with-uv-DE5FE9)
